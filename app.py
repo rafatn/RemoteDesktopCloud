@@ -6,7 +6,7 @@ st.set_page_config(page_title="Remote Desktop Cloud", layout="wide")
 st.title("📱 שליטה מרחוק בענן - שידור חי")
 
 # שדה להזנת כתובת ה-Ngrok או ה-IP החיצוני
-host_address = st.sidebar.text_input("כתובת השרת (Ngrok URL / IP)", value="b135-2a0d-6fc7-703-eeb8-6c59-c31-e1fe-616c.ngrok-free.app")
+host_address = st.sidebar.text_input("כתובת השרת (Ngrok URL / IP)", value="100.94.213.104")
 video_port = st.sidebar.number_input("פורט וידאו", value=5000, step=1)
 input_port = st.sidebar.number_input("פורט קלט", value=5001, step=1)
 
