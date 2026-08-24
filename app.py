@@ -7,7 +7,7 @@ st.set_page_config(page_title="Remote Desktop Cloud", layout="wide")
 st.title("📱 שליטה מרחוק מלאה - סנכרון אוטומטי")
 
 # כתובת ה-API הקבועה שלך מ-npoint.io
-API_CONFIG_URL = "https://api.npoint.io/YOUR_BIN_ID_HERE"
+API_CONFIG_URL = "https://api.npoint.io/9b001b354d076b04b740"
 
 # שליפה אוטומטית של הכתובות העדכניות מהענן
 try:
