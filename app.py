@@ -1,23 +1,28 @@
 import streamlit as st
 import streamlit.components.v1 as components
 import urllib.request
-import urllib.parse
+import json
 
 st.set_page_config(page_title="Remote Desktop Cloud", layout="wide")
-st.title("📱 שליטה מרחוק מלאה - שידור חי יציב")
+st.title("📱 שליטה מרחוק מלאה - סנכרון אוטומטי")
 
-# הגדרות בסיידבר
-# שדות הכתובות בסיידבר ישארו ריקים או מוכנים להדבקה קלה
-host_address = st.sidebar.text_input(
-    "כתובת השרת - וידאו (Cloudflare)", 
-    value=""
-)
-input_host_address = st.sidebar.text_input(
-    "כתובת השרת - קלט (Cloudflare)", 
-    value=""
-)
-video_port = st.sidebar.number_input("פורט וידאו", value=5000, step=1)
-input_port = st.sidebar.number_input("פורט קלט", value=5001, step=1)
+# כתובת ה-API הקבועה שלך מ-npoint.io
+API_CONFIG_URL = "https://api.npoint.io/YOUR_BIN_ID_HERE"
+
+# שליפה אוטומטית של הכתובות העדכניות מהענן
+try:
+    req = urllib.request.Request(API_CONFIG_URL, headers={'User-Agent': 'Mozilla/5.0'})
+    with urllib.request.urlopen(req, timeout=3) as response:
+        config_data = json.loads(response.read().decode())
+        default_video = config_data.get("video_url", "")
+        default_input = config_data.get("input_url", "")
+except:
+    default_video = ""
+    default_input = ""
+
+# הצגת הכתובות בסיידבר (מתעדכנות לבד, אבל אפשר גם לשנות ידנית במידת הצורך)
+host_address = st.sidebar.text_input("כתובת השרת - וידאו", value=default_video)
+input_host_address = st.sidebar.text_input("כתובת השרת - קלט", value=default_input)
 
 if "streaming" not in st.session_state:
     st.session_state.streaming = False
@@ -30,18 +35,16 @@ with col2:
     if st.button("עצור שידור"):
         st.session_state.streaming = False
 
-if st.session_state.streaming:
-    st.sidebar.success("השידור מחובר!")
+if st.session_state.streaming and host_address:
+    st.sidebar.success("השידור מחובר אוטומטית!")
     
     stream_url = host_address.strip()
     if not stream_url.endswith("/stream"):
         stream_url = stream_url.rstrip("/") + "/stream"
         
     input_url = input_host_address.strip().rstrip("/")
-    if input_url and not input_url.startswith("http"):
-        input_url = "https://" + input_url
-    
-    # הצגת הסטרים עם תמיכה בלחיצה ישירה מהנייד על התמונה
+
+    # הצגת הסטרים ושליטה חלקה
     components.html(f"""
         <div style="display: flex; justify-content: center; background-color: #000; padding: 10px; border-radius: 8px;">
             <img id="streamImg" src="{stream_url}" style="width: 100%; max-width: 1200px; height: auto; border-radius: 4px; cursor: crosshair;" 
@@ -53,34 +56,23 @@ if st.session_state.streaming:
                  "
                  onerror="setTimeout(() => {{ this.src = '{stream_url}?t=' + Date.now(); }}, 1000);" />
         </div>
-        <p style="color: gray; text-align: center; font-size: 12px; margin-top: 5px;">לחץ בכל מקום על המסך המשודר כדי ללחוץ עם העכבר במחשב.</p>
     """, height=650)
 
-    st.write("### 🎮 שליטת עכבר מהירה מהנייד (כפתורים):")
+    # כפתורי גיבוי מהנייד
     b_col1, b_col2, b_col3 = st.columns(3)
-    
-    # פונקציית עזר לשליחת פקודות דרך טנל הקלט של Cloudflare
     def send_click_command(cx, cy):
         try:
-            target_click_url = f"{input_url}/click?x={cx}&y={cy}&btn=left"
-            # שליחת בקשת HTTP אמיתית לשרת בבית דרך ה-Cloudflare Tunnel
-            req = urllib.request.Request(target_click_url, headers={'User-Agent': 'Mozilla/5.0'})
-            urllib.request.urlopen(req, timeout=2)
+            urllib.request.urlopen(f"{input_url}/click?x={cx}&y={cy}&btn=left", timeout=2)
             st.toast(f"נשלחה לחיצה: X={cx}, Y={cy}")
         except Exception as ex:
-            st.error(f"שגיאה בשליחת הפקודה: {ex}")
+            st.error(f"שגיאה: {ex}")
 
     with b_col1:
-        if st.button("👈 לחיצה בצד שמאל"):
-            send_click_command(200, 500)
-
+        if st.button("👈 שמאלה"): send_click_command(200, 500)
     with b_col2:
-        if st.button("⏺️ לחיצה במרכז המסך"):
-            send_click_command(500, 500)
-
+        if st.button("⏺️ מרכז"): send_click_command(500, 500)
     with b_col3:
-        if st.button("👉 לחיצה בצד מימין"):
-            send_click_command(800, 500)
+        if st.button("👉 ימינה"): send_click_command(800, 500)
 
 else:
-    st.info("הכנס את כתובות השרת ולחץ על **'התחל שידור'**.")
+    st.info("לחץ על **'התחל שידור'** (הכתובות יטענו אוטומטית מהענן).")
