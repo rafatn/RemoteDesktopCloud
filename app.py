@@ -7,13 +7,14 @@ st.set_page_config(page_title="Remote Desktop Cloud", layout="wide")
 st.title("📱 שליטה מרחוק מלאה - שידור חי יציב")
 
 # הגדרות בסיידבר
+# שדות הכתובות בסיידבר ישארו ריקים או מוכנים להדבקה קלה
 host_address = st.sidebar.text_input(
     "כתובת השרת - וידאו (Cloudflare)", 
-    value="https://purchasing-lovers-ebook-bbs.trycloudflare.com/stream"
+    value=""
 )
 input_host_address = st.sidebar.text_input(
     "כתובת השרת - קלט (Cloudflare)", 
-    value="https://toe-stereo-reno-attorneys.trycloudflare.com"
+    value=""
 )
 video_port = st.sidebar.number_input("פורט וידאו", value=5000, step=1)
 input_port = st.sidebar.number_input("פורט קלט", value=5001, step=1)
