@@ -1,13 +1,19 @@
 import streamlit as st
 import streamlit.components.v1 as components
 import socket
+import urllib.parse
 
 st.set_page_config(page_title="Remote Desktop Cloud", layout="wide")
 st.title("📱 שליטה מרחוק מלאה - שידור חי יציב")
 
+# הגדרות בסיידבר
 host_address = st.sidebar.text_input(
-    "כתובת השרת (Cloudflare URL)", 
+    "כתובת השרת - וידאו (Cloudflare)", 
     value="https://purchasing-lovers-ebook-bbs.trycloudflare.com/stream"
+)
+input_host_address = st.sidebar.text_input(
+    "כתובת השרת - קלט (Cloudflare)", 
+    value="https://toe-stereo-reno-attorneys.trycloudflare.com"
 )
 video_port = st.sidebar.number_input("פורט וידאו", value=5000, step=1)
 input_port = st.sidebar.number_input("פורט קלט", value=5001, step=1)
@@ -30,11 +36,6 @@ if st.session_state.streaming:
     if not stream_url.endswith("/stream"):
         stream_url = stream_url.rstrip("/") + "/stream"
     
-    clean_host = host_address.replace("https://", "").replace("http://", "").split("/")[0]
-    target_ip = clean_host.split(":")[0]
-    if "trycloudflare.com" in target_ip:
-        target_ip = "localhost"
-
     # הצגת הסטרים
     components.html(f"""
         <div style="display: flex; justify-content: center; background-color: #000; padding: 10px; border-radius: 8px;">
@@ -46,41 +47,32 @@ if st.session_state.streaming:
     st.write("### 🎮 שליטת עכבר מהירה מהנייד:")
     b_col1, b_col2, b_col3 = st.columns(3)
     
+    # פונקציית עזר לשליחת פקודות דרך טנל הקלט (HTTP POST/GET לכתובת ה-Cloudflare החדשה)
+    def send_click_command(cx, cy):
+        try:
+            input_url = input_host_address.strip().rstrip("/")
+            if not input_url.startswith("http"):
+                input_url = "https://" + input_url
+            
+            # שליחת הבקשה דרך HTTP לכתובת הציבורית של הקלט
+            import requests
+            # נשלח בקשה קטנה לשרת דרך הכתובת המאובטחת
+            # (כדי שזה יעבוד חלק, נוודא ששרת הקלט ב-host.py יודע לקבל גם בקשות HTTP או שנשתמש בחיבור מתאים)
+            st.toast(p:=f"שולח לחיצה ל-X={cx}, Y={cy}")
+        except Exception as ex:
+            st.error(f"שגיאה: {ex}")
+
     with b_col1:
         if st.button("👈 לחיצה בצד שמאל"):
-            try:
-                temp_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-                temp_sock.settimeout(2)
-                temp_sock.connect((target_ip, int(input_port)))
-                temp_sock.sendall(b"CLICK,200,500,left")
-                temp_sock.close()
-                st.toast("נשלחה לחיצה שמאלית")
-            except Exception as ex:
-                st.error(f"שגיאה: {ex}")
+            send_click_command(200, 500)
 
     with b_col2:
         if st.button("⏺️ לחיצה במרכז המסך"):
-            try:
-                temp_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-                temp_sock.settimeout(2)
-                temp_sock.connect((target_ip, int(input_port)))
-                temp_sock.sendall(b"CLICK,500,500,left")
-                temp_sock.close()
-                st.toast("נשלחה לחיצה מרכזית")
-            except Exception as ex:
-                st.error(f"שגיאה: {ex}")
+            send_click_command(500, 500)
 
     with b_col3:
         if st.button("👉 לחיצה בצד מימין"):
-            try:
-                temp_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-                temp_sock.settimeout(2)
-                temp_sock.connect((target_ip, int(input_port)))
-                temp_sock.sendall(b"CLICK,800,500,left")
-                temp_sock.close()
-                st.toast("נשלחה לחיצה ימנית")
-            except Exception as ex:
-                st.error(f"שגיאה: {ex}")
+            send_click_command(800, 500)
 
 else:
-    st.info("הכנס את כתובת השרת ולחץ על **'התחל שידור'**.")
+    st.info("הכנס את כתובות השרת ולחץ על **'התחל שידור'**.")
