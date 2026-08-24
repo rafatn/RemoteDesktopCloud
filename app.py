@@ -5,8 +5,11 @@ import socket
 st.set_page_config(page_title="Remote Desktop Cloud", layout="wide")
 st.title("📱 שליטה מרחוק מלאה - שידור חי יציב")
 
-# שדה להזנת כתובת ה-Tailscale IP
-host_address = st.sidebar.text_input("כתובת השרת ()", value="https://purchasing-lovers-ebook-bbs.trycloudflare.com")
+# שדה להזנת כתובת השרת (כולל https:// ו- /stream)
+host_address = st.sidebar.text_input(
+    "כתובת השרת (Cloudflare URL)", 
+    value="https://purchasing-lovers-ebook-bbs.trycloudflare.com/stream"
+)
 video_port = st.sidebar.number_input("פורט וידאו", value=5000, step=1)
 input_port = st.sidebar.number_input("פורט קלט", value=5001, step=1)
 
@@ -24,10 +27,16 @@ with col2:
 if st.session_state.streaming:
     st.sidebar.success("השידור מחובר!")
     
-    # ניקוי הכתובת מרווחים מיותרים או פרוטוקולים
-    clean_host = host_address.strip().replace("https://", "").replace("http://", "").split("/")[0]
-    stream_url = f"http://{clean_host}:{video_port}/stream"
+    # שימוש ישיר בכתובת המלאה שהוזנה, תוך וידוא שהיא מסתיימת ב-/stream
+    stream_url = host_address.strip()
+    if not stream_url.endswith("/stream"):
+        stream_url = stream_url.rstrip("/") + "/stream"
     
+    # חילוץ הכתובת הבסיסית או ה-IP עבור שליחת פקודות קלט (עכבר/מקלדת)
+    # במידה ומשתמשים ב-Cloudflare Tunnel, שליחת קלט דרך TCP חיצוני דורשת כתובת מתאימה, 
+    # אך לצורך הדוגמה נשתמש בחילוץ ה-hostname או נשמור על תאימות
+    clean_host = host_address.replace("https://", "").replace("http://", "").split("/")[0]
+
     # הצגת הסטרים בתוך נגן HTML חלק ויציב עם מנגנון רענון אוטומטי במקרה של ניתוק
     components.html(f"""
         <div style="display: flex; justify-content: center; background-color: #000; padding: 10px; border-radius: 8px;">
@@ -38,9 +47,14 @@ if st.session_state.streaming:
 
     if st.button("שלח לחיצה שמאלית במרכז המסך"):
         try:
+            # הערה: שליחת קלט דרך TCP דורשת חיבור ישיר (למשל דרך Tailscale IP עבור פקודות),
+            # לכן אם משתמשים ב-Cloudflare עבור וידאו, כדאי לוודא לאן שולחים את פקודות ה-TCP.
             temp_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             temp_sock.settimeout(3)
-            temp_sock.connect((clean_host, int(input_port)))
+            # אם מוזנת כתובת Cloudflare, פקודות TCP ישירות לא יעברו דרכה אלא אם יש טנל נפרד לפקודות.
+            # נשאיר את החיבור הבסיסי לפי הפורט המוגדר:
+            target_ip = clean_host.split(":")[0] # ניקוי פורטים במידה וקיימים
+            temp_sock.connect((target_ip if not "trycloudflare.com" in target_ip else "localhost", int(input_port)))
             temp_sock.sendall(b"CLICK,500,500,left")
             temp_sock.close()
             st.toast("הפקודה נשלחה בהצלחה!")
