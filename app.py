@@ -6,7 +6,7 @@ st.set_page_config(page_title="Remote Desktop Cloud", layout="wide")
 st.title("📱 שליטה מרחוק מלאה - שידור חי יציב")
 
 # שדה להזנת כתובת ה-Tailscale IP
-host_address = st.sidebar.text_input("כתובת השרת (Tailscale IP)", value="area-loop-councils-scenarios.trycloudflare.com")
+host_address = st.sidebar.text_input("כתובת השרת ()", value="https://purchasing-lovers-ebook-bbs.trycloudflare.com")
 video_port = st.sidebar.number_input("פורט וידאו", value=5000, step=1)
 input_port = st.sidebar.number_input("פורט קלט", value=5001, step=1)
 
