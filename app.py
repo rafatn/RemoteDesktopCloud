@@ -1,6 +1,6 @@
 import streamlit as st
 import streamlit.components.v1 as components
-import socket
+import urllib.request
 import urllib.parse
 
 st.set_page_config(page_title="Remote Desktop Cloud", layout="wide")
@@ -35,32 +35,39 @@ if st.session_state.streaming:
     stream_url = host_address.strip()
     if not stream_url.endswith("/stream"):
         stream_url = stream_url.rstrip("/") + "/stream"
+        
+    input_url = input_host_address.strip().rstrip("/")
+    if input_url and not input_url.startswith("http"):
+        input_url = "https://" + input_url
     
-    # הצגת הסטרים
+    # הצגת הסטרים עם תמיכה בלחיצה ישירה מהנייד על התמונה
     components.html(f"""
         <div style="display: flex; justify-content: center; background-color: #000; padding: 10px; border-radius: 8px;">
-            <img id="streamImg" src="{stream_url}" style="width: 100%; max-width: 1200px; height: auto; border-radius: 4px;" 
+            <img id="streamImg" src="{stream_url}" style="width: 100%; max-width: 1200px; height: auto; border-radius: 4px; cursor: crosshair;" 
+                 onclick="
+                    let rect = this.getBoundingClientRect();
+                    let x = Math.round((event.clientX - rect.left) * (this.naturalWidth / rect.width));
+                    let y = Math.round((event.clientY - rect.top) * (this.naturalHeight / rect.height));
+                    fetch('{input_url}/click?x=' + x + '&y=' + y + '&btn=left', {{method: 'GET', mode: 'no-cors'}});
+                 "
                  onerror="setTimeout(() => {{ this.src = '{stream_url}?t=' + Date.now(); }}, 1000);" />
         </div>
+        <p style="color: gray; text-align: center; font-size: 12px; margin-top: 5px;">לחץ בכל מקום על המסך המשודר כדי ללחוץ עם העכבר במחשב.</p>
     """, height=650)
 
-    st.write("### 🎮 שליטת עכבר מהירה מהנייד:")
+    st.write("### 🎮 שליטת עכבר מהירה מהנייד (כפתורים):")
     b_col1, b_col2, b_col3 = st.columns(3)
     
-    # פונקציית עזר לשליחת פקודות דרך טנל הקלט (HTTP POST/GET לכתובת ה-Cloudflare החדשה)
+    # פונקציית עזר לשליחת פקודות דרך טנל הקלט של Cloudflare
     def send_click_command(cx, cy):
         try:
-            input_url = input_host_address.strip().rstrip("/")
-            if not input_url.startswith("http"):
-                input_url = "https://" + input_url
-            
-            # שליחת הבקשה דרך HTTP לכתובת הציבורית של הקלט
-            import requests
-            # נשלח בקשה קטנה לשרת דרך הכתובת המאובטחת
-            # (כדי שזה יעבוד חלק, נוודא ששרת הקלט ב-host.py יודע לקבל גם בקשות HTTP או שנשתמש בחיבור מתאים)
-            st.toast(p:=f"שולח לחיצה ל-X={cx}, Y={cy}")
+            target_click_url = f"{input_url}/click?x={cx}&y={cy}&btn=left"
+            # שליחת בקשת HTTP אמיתית לשרת בבית דרך ה-Cloudflare Tunnel
+            req = urllib.request.Request(target_click_url, headers={'User-Agent': 'Mozilla/5.0'})
+            urllib.request.urlopen(req, timeout=2)
+            st.toast(f"נשלחה לחיצה: X={cx}, Y={cy}")
         except Exception as ex:
-            st.error(f"שגיאה: {ex}")
+            st.error(f"שגיאה בשליחת הפקודה: {ex}")
 
     with b_col1:
         if st.button("👈 לחיצה בצד שמאל"):
