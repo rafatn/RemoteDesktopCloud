@@ -36,7 +36,8 @@ if st.session_state.streaming:
     if "trycloudflare.com" in target_ip:
         target_ip = "localhost"
 
-    # קליטת קואורדינטות במידה ונשלחו מה-HTML
+    # טיפול בקלט שמגיע דרך ה-JavaScript ברקע
+    # (משתמש ב-Query Params שקטים או בשיטת תקשורת ישירה)
     if "click_x" in st.query_params and "click_y" in st.query_params:
         try:
             cx = int(st.query_params["click_x"])
@@ -46,18 +47,23 @@ if st.session_state.streaming:
             temp_sock.connect((target_ip, int(input_port)))
             temp_sock.sendall(f"CLICK,{cx},{cy},left".encode('utf-8'))
             temp_sock.close()
-            st.toast(f" בוצעה לחיצה בקוורדינטות: X={cx}, Y={cy}")
-        except Exception as ex:
+        except:
             pass
+        # מחיקת הפרמטרים כדי לא ללחוץ שוב בטעות בריענון הבא
+        st.query_params.clear()
 
-    # הצגת הסטרים בתוך נגן HTML המאפשר ללחוץ על התמונה
+    # הצגת הסטרים עם שליחת קלט חלקה ברקע
     components.html(f"""
         <div style="display: flex; justify-content: center; background-color: #000; padding: 10px; border-radius: 8px;">
             <img id="streamImg" src="{stream_url}" style="width: 100%; max-width: 1200px; height: auto; border-radius: 4px; cursor: crosshair;" 
-                 onclick="let rect = this.getBoundingClientRect(); let x = Math.round((event.clientX - rect.left) * (this.naturalWidth / rect.width)); let y = Math.round((event.clientY - rect.top) * (this.naturalHeight / rect.height)); window.location.href = '?click_x=' + x + '&click_y=' + y;"
+                 onclick="let rect = this.getBoundingClientRect(); 
+                          let x = Math.round((event.clientX - rect.left) * (this.naturalWidth / rect.width)); 
+                          let y = Math.round((event.clientY - rect.top) * (this.naturalHeight / rect.height)); 
+                          fetch('?click_x=' + x + '&click_y=' + y, {{method: 'GET', mode: 'no-cors'}});"
                  onerror="setTimeout(() => {{ this.src = '{stream_url}?t=' + Date.now(); }}, 1000);" />
         </div>
-    """, height=700)
+        <p style="color: gray; text-align: center; font-size: 12px; margin-top: 5px;">לחץ על כל מקום בתמונה כדי לשלוח לחיצת עכבר למחשב המארח.</p>
+    """, height=730)
 
 else:
     st.info("הכנס את כתובת השרת ולחץ על **'התחל שידור'**.")
