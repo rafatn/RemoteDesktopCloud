@@ -51,8 +51,11 @@ if st.session_state.streaming and host_address:
         password_input = st.text_input("הכנס סיסמה למחשב (ברירת מחדל: 1234)", type="password")
         if st.button("התחבר למערכת"):
             try:
-                # בדיקת אימות מול שרת הוידאו
-                auth_req = urllib.request.Request(f"{host_address.rstrip('/')}/login?pwd={password_input}")
+                # ניקוי כתובת השרת ויצירת נתיב התחברות תקין ללא כפילויות נתיבים
+                base_host = host_address.strip().replace("/stream", "").rstrip("/")
+                auth_url = f"{base_host}/login?pwd={password_input}"
+                
+                auth_req = urllib.request.Request(auth_url)
                 with urllib.request.urlopen(auth_req, timeout=3) as auth_res:
                     res_data = json.loads(auth_res.read().decode())
                     if res_data.get("status") == "ok":
