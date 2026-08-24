@@ -1,79 +1,52 @@
 import streamlit as st
+import streamlit.components.v1 as components
 import socket
-import struct
-import cv2
-import numpy as np
-import threading
 
 st.set_page_config(page_title="Remote Desktop Cloud", layout="wide")
+st.title("📱 שליטה מרחוק בענן - שידור חי")
 
-st.title("📱 שליטה מרחוק מלאה - צפייה ושליטה")
-
-# הגדרת כתובות ופורטים (למשל דרך הצינור של Cloudflare)
-host_address = st.sidebar.text_input("כתובת השרת (Host / Domain)", value="0.tcp.ngrok.io")
+# שדה להזנת כתובת ה-Ngrok או ה-IP החיצוני
+host_address = st.sidebar.text_input("כתובת השרת (Ngrok URL / IP)", value="b135-2a0d-6fc7-703-eeb8-6c59-c31-e1fe-616c.ngrok-free.app")
 video_port = st.sidebar.number_input("פורט וידאו", value=5000, step=1)
-input_port = st.sidebar.number_input("פורט קלט (עכבר/מקלדת)", value=5001, step=1)
+input_port = st.sidebar.number_input("פורט קלט", value=5001, step=1)
 
-connect_btn = st.sidebar.button("התחבר למחשב")
+if "streaming" not in st.session_state:
+    st.session_state.streaming = False
 
-if connect_btn:
-    st.sidebar.success(f"מתחבר אל השרתים...")
-    frame_slot = st.empty()
+col1, col2 = st.sidebar.columns(2)
+with col1:
+    if st.button("התחל שידור"):
+        st.session_state.streaming = True
+with col2:
+    if st.button("עצור שידור"):
+        st.session_state.streaming = False
+
+if st.session_state.streaming:
+    st.sidebar.success("השידור מחובר לענן!")
     
-    # משתנים גלובליים לשמירת הסוקטים
-    global input_sock
-    input_sock = None
+    # בניית כתובת הסטרים (אם משתמשים ב-Ngrok, הם מספקים HTTPS ישיר)
+    if "ngrok" in host_address:
+        # ב-Ngrok אין צורך בציון הפפורט כי הכתובת מובילה ישירות לפורט 5000
+        clean_url = host_address.replace("https://", "").replace("http://", "")
+        stream_url = f"https://{clean_url}/stream"
+    else:
+        stream_url = f"http://{host_address}:{video_port}/stream"
+    
+    # הצגת הסטרים בתוך נגן HTML חלק ויציב
+    components.html(f"""
+        <div style="display: flex; justify-content: center; background-color: #000; padding: 10px; border-radius: 8px;">
+            <img src="{stream_url}" style="width: 100%; max-width: 1200px; height: auto; border-radius: 4px;" />
+        </div>
+    """, height=700)
 
-    def run_viewer():
-        global input_sock
+    if st.button("שלח לחיצה שמאלית במרכז המסך"):
         try:
-            # חיבור לערוץ הוידאו
-            v_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            v_sock.connect((host_address, int(video_port)))
-            
-            # חיבור לערוץ הקלט
-            input_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            input_sock.connect((host_address, int(input_port)))
-            st.toast("התחבר בהצלחה לערוצי הווידאו והקלט!")
-
-            data = b""
-            payload_size = struct.calcsize(">L")
-
-            while True:
-                while len(data) < payload_size:
-                    packet = v_sock.recv(4096)
-                    if not packet: break
-                    data += packet
-                if not data: break
-
-                packed_msg_size = data[:payload_size]
-                data = data[payload_size:]
-                msg_size = struct.unpack(">L", packed_msg_size)[0]
-
-                while len(data) < msg_size:
-                    data += v_sock.recv(4096)
-
-                frame_data = data[:msg_size]
-                data = data[msg_size:]
-
-                frame = np.frombuffer(frame_data, dtype=np.uint8)
-                image = cv2.imdecode(frame, cv2.IMREAD_COLOR)
-
-                if image is not None:
-                    image_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-                    frame_slot.image(image_rgb, channels="RGB", use_container_width=True)
-                    
-        except Exception as e:
-            st.error(f"שגיאה בחיבור: {e}")
-
-    threading.Thread(target=run_viewer, daemon=True).start()
-
-    # דוגמה לשליחת פקודת עכבר ידנית או כפתורי שליטה מהירים דרך הממשק
-    st.subheader("בקרת שליטה מהירה")
-    col1, col2 = st.columns(2)
-    with col1:
-        if st.button("שלח לחיצה שמאלית במרכז המסך"):
-            if 'input_sock' in globals() and input_sock:
-                # שליחת פקודת קליק לדוגמה
-                cmd = "CLICK,500,500,left".encode('utf-8')
-                input_sock.sendall(cmd)
+            temp_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            temp_sock.connect((host_address.replace("https://", "").replace("http://", ""), int(input_port)))
+            temp_sock.sendall("CLICK,500,500,left".encode('utf-8'))
+            temp_sock.close()
+            st.toast("הפקודה נשלחה בהצלחה!")
+        except Exception as ex:
+            st.error(f"שגיאה בשליחת קלט: {ex}")
+else:
+    st.info("הכנס את כתובת השרת ולחץ על **'התחל שידור'**.")
