@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <title>מערכת שיעורים מקוונים</title>
+    <script src="https://cdn.jsdelivr.net/npm/livekit-client/dist/livekit-client.umd.min.js"></script>
+    <style>
+        body { font-family: Arial, sans-serif; background: #121212; color: white; margin: 0; padding: 20px; display: flex; flex-direction: column; align-items: center; }
+        .card { background: #1e1e1e; padding: 25px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.5); width: 100%; max-width: 400px; margin-top: 50px; }
+        input, select, button { width: 100%; padding: 12px; margin: 10px 0; border-radius: 6px; border: 1px solid #444; background: #2c2c2c; color: white; box-sizing: border-box; }
+        button { background: #28a745; font-weight: bold; cursor: pointer; border: none; }
+        button:hover { background: #218838; }
+        #room-screen { display: none; width: 100%; max-width: 1000px; }
+        #video-container { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 15px; width: 100%; margin-top: 20px; }
+        video { width: 100%; max-height: 400px; object-fit: cover; border-radius: 8px; background: #000; }
+        .participant-box { background: #222; padding: 10px; border-radius: 8px; text-align: center; }
+    </style>
+</head>
+<body>
+
+    <!-- מסך התחברות -->
+    <div id="login-screen" class="card">
+        <h2>🎓 כניסה לשיעור</h2>
+        <input type="text" id="username" placeholder="שם מלא">
+        <input type="text" id="room" placeholder="קוד חדר (למשל: math-101)">
+        <select id="role">
+            <option value="student">תלמיד (צפייה והאזנה)</option>
+            <option value="teacher">מורה (שידור מצלמה ומיקרופון)</option>
+        </select>
+        <button onclick="connectToClass()">הכנס לשיעור</button>
+    </div>
+
+    <!-- מסך השידור -->
+    <div id="room-screen">
+        <h2 id="room-title"></h2>
+        <p id="user-status" style="color: #aaa;"></p>
+        <button onclick="location.reload()" style="width: auto; padding: 8px 15px; background: #dc3545;">יציאה מהשיעור</button>
+        <div id="video-container"></div>
+    </div>
+
+    <script>
+        let room = null;
+
+        async function connectToClass() {
+            const username = document.getElementById("username").value.trim();
+            const roomName = document.getElementById("room").value.trim();
+            const role = document.getElementById("role").value;
+
+            if (!username || !roomName) {
+                alert("נא למלא את כל השדות");
+                return;
+            }
+
+            try {
+                // קבלת טוקן מהשרת בהתאם לתפקיד שנבחר
+                const response = await fetch(`/api/token?room=${encodeURIComponent(roomName)}&username=${encodeURIComponent(username)}&role=${role}`);
+                const data = await response.json();
+
+                if (!response.ok) throw new Error(data.detail || "שגיאה ביצירת טוקן");
+
+                // מעבר בין מסכים
+                document.getElementById("login-screen").style.display = "none";
+                document.getElementById("room-screen").style.display = "block";
+                document.getElementById("room-title").innerText = "שיעור: " + roomName;
+                document.getElementById("user-status").innerText = role === "teacher" ? "מחובר כמורה (משדר)" : "מחובר כתלמיד (צפייה והאזנה)";
+
+                // חיבור ל-LiveKit
+                room = new LiveKit.Room();
+                const container = document.getElementById("video-container");
+
+                // פונקציה שמטפלת בהוספת וידאו/אודיו של משתתפים אחרים (למשל תלמיד שרואה את המורה)
+                room.on(LiveKit.RoomEvent.TrackSubscribed, (track, publication, participant) => {
+                    if (track.kind === "video" || track.kind === "audio") {
+                        const element = track.attach();
+                        container.appendChild(element);
+                    }
+                });
+
+                await room.connect(data.url, data.token);
+
+                // אם המשתמש הוא מורה - נפעיל את המצלמה והמיקרופון שלו אוטומטית ונציג אותם
+                if (role === "teacher") {
+                    await room.localParticipant.enableCameraAndMicrophone();
+                    room.localParticipant.trackPublications.forEach((publication) => {
+                        if (publication.track) {
+                            container.appendChild(publication.track.attach());
+                        }
+                    });
+                } else {
+                    // אם זה תלמיד - הוא רק מאזין וצופה במי שנמצא בחדר (כמו המורה)
+                    console.log("התלמיד התחבר בהצלחה וממתין לשידור של המורה...");
+                }
+
+            } catch (error) {
+                alert("שגיאת התחברות: " + error.message);
+                location.reload();
+            }
+        }
+    </script>
+</body>
+</html>
