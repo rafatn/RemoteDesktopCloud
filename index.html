@@ -3,7 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <title>מערכת שיעורים מקוונים</title>
+    <!-- טעינת ספרית LiveKit -->
     <script src="https://cdn.jsdelivr.net/npm/livekit-client/dist/livekit-client.umd.min.js"></script>
+    <!-- טעינת ספרית JWT לצורך יצור טוקנים ישירות בדפדפן -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jsrsasign/10.8.6/jsrsasign-all-min.js"></script>
     <style>
         body { font-family: Arial, sans-serif; background: #121212; color: white; margin: 0; padding: 20px; display: flex; flex-direction: column; align-items: center; }
         .card { background: #1e1e1e; padding: 25px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.5); width: 100%; max-width: 400px; margin-top: 50px; }
@@ -13,7 +16,6 @@
         #room-screen { display: none; width: 100%; max-width: 1000px; }
         #video-container { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 15px; width: 100%; margin-top: 20px; }
         video { width: 100%; max-height: 400px; object-fit: cover; border-radius: 8px; background: #000; }
-        .participant-box { background: #222; padding: 10px; border-radius: 8px; text-align: center; }
     </style>
 </head>
 <body>
@@ -39,7 +41,34 @@
     </div>
 
     <script>
+        // הגדר את הנתונים שלך כאן בקוד (או תן למורה להתחבר)
+        const LIVEKIT_URL = "wss://my-classroom-tvclvnpa.livekit.cloud";
+        const API_KEY = "APIscKjHmwLjik6";
+        const API_SECRET = "a8WsGwiQGE8YjTVg26qd3TUi7eW6ODFMCmypAnGeqxq"
+
         let room = null;
+
+        // פונקציה לייצור טוקן חירום ישירות בדפדפן בלי צורך בשרת פייתון
+        function generateToken(roomName, username, isTeacher) {
+            const header = { alg: 'HS256', typ: 'JWT' };
+            const now = Math.floor(Date.now() / 1000);
+            
+            const payload = {
+                iss: API_KEY,
+                sub: username,
+                nbf: now,
+                exp: now + 3600, // תוקף לשעה
+                video: {
+                    room: roomName,
+                    roomJoin: true,
+                    canPublish: isTeacher,
+                    canSubscribe: true,
+                    roomAdmin: isTeacher
+                }
+            };
+
+            return KJUR.jws.JWS.sign("HS256", JSON.stringify(header), JSON.stringify(payload), API_SECRET);
+        }
 
         async function connectToClass() {
             const username = document.getElementById("username").value.trim();
@@ -52,23 +81,17 @@
             }
 
             try {
-                // קבלת טוקן מהשרת בהתאם לתפקיד שנבחר
-                const response = await fetch(`/api/token?room=${encodeURIComponent(roomName)}&username=${encodeURIComponent(username)}&role=${role}`);
-                const data = await response.json();
+                const isTeacher = (role === "teacher");
+                const token = generateToken(roomName, username, isTeacher);
 
-                if (!response.ok) throw new Error(data.detail || "שגיאה ביצירת טוקן");
-
-                // מעבר בין מסכים
                 document.getElementById("login-screen").style.display = "none";
                 document.getElementById("room-screen").style.display = "block";
                 document.getElementById("room-title").innerText = "שיעור: " + roomName;
-                document.getElementById("user-status").innerText = role === "teacher" ? "מחובר כמורה (משדר)" : "מחובר כתלמיד (צפייה והאזנה)";
+                document.getElementById("user-status").innerText = isTeacher ? "מחובר כמורה (משדר)" : "מחובר כתלמיד (צפייה והאזנה)";
 
-                // חיבור ל-LiveKit
                 room = new LiveKit.Room();
                 const container = document.getElementById("video-container");
 
-                // פונקציה שמטפלת בהוספת וידאו/אודיו של משתתפים אחרים (למשל תלמיד שרואה את המורה)
                 room.on(LiveKit.RoomEvent.TrackSubscribed, (track, publication, participant) => {
                     if (track.kind === "video" || track.kind === "audio") {
                         const element = track.attach();
@@ -76,21 +99,16 @@
                     }
                 });
 
-                await room.connect(data.url, data.token);
+                await room.connect(LIVEKIT_URL, token);
 
-                // אם המשתמש הוא מורה - נפעיל את המצלמה והמיקרופון שלו אוטומטית ונציג אותם
-                if (role === "teacher") {
+                if (isTeacher) {
                     await room.localParticipant.enableCameraAndMicrophone();
                     room.localParticipant.trackPublications.forEach((publication) => {
                         if (publication.track) {
                             container.appendChild(publication.track.attach());
                         }
                     });
-                } else {
-                    // אם זה תלמיד - הוא רק מאזין וצופה במי שנמצא בחדר (כמו המורה)
-                    console.log("התלמיד התחבר בהצלחה וממתין לשידור של המורה...");
                 }
-
             } catch (error) {
                 alert("שגיאת התחברות: " + error.message);
                 location.reload();
