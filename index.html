@@ -41,10 +41,9 @@
     </div>
 
     <script>
-        // הגדר את הנתונים שלך כאן בקוד (או תן למורה להתחבר)
         const LIVEKIT_URL = "wss://my-classroom-tvclvnpa.livekit.cloud";
         const API_KEY = "APIscKjHmwLjik6";
-        const API_SECRET = "a8WsGwiQGE8YjTVg26qd3TUi7eW6ODFMCmypAnGeqxq"
+        const API_SECRET = "a8WsGwiQGE8YjTVg26qd3TUi7eW6ODFMCmypAnGeqxq";
 
         let room = null;
 
@@ -71,6 +70,12 @@
         }
 
         async function connectToClass() {
+            // בדיקה שספריית LiveKit נטענה בהצלחה כדי למנוע את שגיאת "LiveKit is not defined"
+            if (typeof LiveKit === 'undefined') {
+                alert("שגיאה: ספריית הווידאו עדיין נטענת מהרשת. המתן שנייה ונסה שוב.");
+                return;
+            }
+
             const username = document.getElementById("username").value.trim();
             const roomName = document.getElementById("room").value.trim();
             const role = document.getElementById("role").value;
