@@ -74,7 +74,7 @@ if st.session_state.streaming and host_address:
         with m_col2:
             if st.button("✌️ קליק ימני"):
                 st.session_state.mouse_mode = "right"
-        st.sidebar.info(وضع: f"מצב עכבר פעיל: **{'ימני' if st.session_state.mouse_mode == 'right' else 'שמאלי'}**")
+        st.sidebar.info(f"מצב עכבר פעיל: **{'ימני' if st.session_state.mouse_mode == 'right' else 'שמאלי'}**")
 
         # סרגלי כלים מתקדמים (איכות, גלילה, מקשים, הדבקה)
         st.markdown("### 🎛️ כלי שליטה מהירים")
